@@ -56,14 +56,21 @@ def main(stdscr):
     disable_blocking(debug_pane)  # Set pane to non-blocking input
     
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
-    curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_MAGENTA)
     plain = curses.color_pair(1) 
     hilite = curses.color_pair(2)
     key = "2"
-    stdscr.addstr(9, 5, "wassup (^=__=^)")
+    stdscr.addstr(9, 5, "(^=__=^)")
     stdscr.refresh()
     spinner = ["-", "\\", "|", "/"]
     i_s = 0
+    curses.curs_set(0)
+    # Run through all of the lines in the pane
+    for i in range(43): 
+        pane.addstr(chr(keymap[i]), plain) # Print character, auto wrap with addstr
+    pane.leaveok(True)
+    spin_pane.leaveok(True)
+    pane.refresh()
 
     while True:
         
@@ -72,11 +79,8 @@ def main(stdscr):
             i_s += 0.03
         else: 
             i_s = 0
-        debug_pane.addstr(0, 0, str(keytimers[0]))
-        debug_pane.refresh()
-        if i_s//10 == 0:
-            spin_pane.addstr(0, 0, spinner[int(i_s)])
-            spin_pane.refresh()
+        spin_pane.addstr(0, 0, spinner[int(i_s)])
+        spin_pane.noutrefresh()
 
         key = "2"
 
@@ -84,23 +88,27 @@ def main(stdscr):
             key = pane.getkey()  # Non-blocking input check
             for i in range(44):
                 if chr(keymap[i])== key:
-                    keytimers[i] = 10
+                    keytimers[i] = 5
         except: key = "2"
-             
-        pane.clear()
-
-        # Run through all of the lines in the pane
-        for i in range(43): 
-            if keytimers[i] > 0:
-                pane.addstr(chr(keymap[i]), hilite)
-            else:
-                pane.addstr(chr(keymap[i]), plain) # Print character, auto wrap with addstr
 
         for i in range(44):
             if keytimers[i] > 0:
                 keytimers[i] -= 1
+             
+       #pane.clear()
 
-        pane.refresh()
+        # Run through all of the lines in the pane
+        for y in range(4):
+            for x in range(11):
+                if keytimers[(y*11)+x] > 0:
+                    pane.addch(y, x, chr(keymap[(y*11)+x]), hilite)
+                if keytimers[(y*11)+x] == 1:
+                    pane.addch(y, x, chr(keymap[(y*11)+x]), plain) # Print character, auto wrap with addstr
+
+
+        pane.noutrefresh()
+
+        curses.doupdate()
         time.sleep(0.017)
 curses.wrapper(main)
 
