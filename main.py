@@ -8,9 +8,11 @@ height = 4
 #       123456789AB
 row1 = "qwert  yuio"
 row2 = "asdfg  hjkl"
-row3 = "zxcvb  pnm "
-row4 = "    =  =   "
-row = "qwert  yuioasdfg  hjklzxcvb  pnm     =  =   "
+row3 = "zxcvb  pnm["
+            #0123456789ABCDEFGHIJKLMNOPQ
+lpanechars = "qwertasdfgzxcvb"
+rpanechars = "yuiohjklpnm["
+
 #   keymap = np.zeros((width, height), dtype = int)
 
 #   for i in range(width):
@@ -19,10 +21,15 @@ row = "qwert  yuioasdfg  hjklzxcvb  pnm     =  =   "
 #       keymap[i][2] = ord(row3[i])
 #       keymap[i][3] = ord(row4[i])
 
-keymap = np.zeros((44), dtype = np.uint8)
-keytimers = np.zeros((44), dtype = np.uint8)
-for i in range(44):
-    keymap[i] = ord(row[i])
+l_keymap = np.zeros((15), dtype = np.uint8)
+l_keytimers = np.zeros((15), dtype = np.uint8)
+for i in range(15):
+    l_keymap[i] = ord(lpanechars[i])
+
+r_keymap = np.zeros((12), dtype = np.uint8)
+r_keytimers = np.zeros((12), dtype = np.uint8)
+for i in range(12):
+    r_keymap[i] = ord(rpanechars[i])
 
 def init_curses():
     # Initialize curses
@@ -33,48 +40,55 @@ def init_curses():
     return stdscr
  
 def create_pane(stdscr, height, width, y, x):
-    # Create a new window pane
+    # Create a new window l_pane
     pane = stdscr.subwin(height, width, y, x)
-    pane.box()  # Draw a border around the pane
-    pane.refresh()  # Refresh the pane to display
+    pane.box()  # Draw a border around the l_pane
+    pane.refresh()  # Refresh the l_pane to display
     return pane
-
-def disable_blocking(pane):
-    # Disable blocking on input
-    pane.nodelay(True)
 
 def main(stdscr):
 
     init_curses()
     stdscr.clear()
-    pane = stdscr.subwin(4, 11, 5, 5)
+    l_pane = stdscr.subwin(4, 5, 1, 1)
+    r_pane = stdscr.subwin(4, 4, 1, 9)
     debug_pane = stdscr.subwin(5, 12, 0, 0)
     debug_pane.box()
     spin_pane = stdscr.subwin(1, 2, 4, 5)
-    disable_blocking(pane)  # Set pane to non-blocking input
-    disable_blocking(spin_pane)  # Set pane to non-blocking input
-    disable_blocking(debug_pane)  # Set pane to non-blocking input
+
+    l_pane.nodelay(True)  # Set l_pane to non-blocking input
+    r_pane.nodelay(True)  # Set l_pane to non-blocking input
+    spin_pane.nodelay(True)  # Set l_pane to non-blocking input
+    debug_pane.nodelay(True)  # Set l_pane to non-blocking input
     
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_MAGENTA)
     plain = curses.color_pair(1) 
     hilite = curses.color_pair(2)
+    
     key = "2"
+
     stdscr.addstr(9, 5, "(^=__=^)")
     stdscr.refresh()
     spinner = ["-", "\\", "|", "/"]
-    i_s = 0
+    i_s = 0 # Spinner timer
     curses.curs_set(0)
-    # Run through all of the lines in the pane
-    for i in range(43): 
-        pane.addstr(chr(keymap[i]), plain) # Print character, auto wrap with addstr
-    pane.leaveok(True)
+    # Run through all of the lines in the l_pane
+    for i in range(15): 
+        l_pane.addstr(chr(l_keymap[i]), plain) # Print character, auto wrap with addstr
+
+    # Run through all of the lines in the r_pane
+    for i in range(12): 
+        r_pane.addstr(chr(r_keymap[i]), plain) # Print character, auto wrap with addstr
+
+    l_pane.leaveok(True)
+    r_pane.leaveok(True)
     spin_pane.leaveok(True)
-    pane.refresh()
+    l_pane.refresh()
+    r_pane.refresh()
 
     while True:
         
-
         if i_s < 3:
             i_s += 0.03
         else: 
@@ -83,31 +97,44 @@ def main(stdscr):
         spin_pane.noutrefresh()
 
         key = "2"
-
+        
+        # L PANE KEY TIMER LOGIC
         try:
-            key = pane.getkey()  # Non-blocking input check
-            for i in range(44):
-                if chr(keymap[i])== key:
-                    keytimers[i] = 5
+            key = l_pane.getkey()  # Non-blocking input check
+            for i in range(15):
+                if chr(l_keymap[i])== key:
+                    l_keytimers[i] = 5
+            for i in range(12):
+                if chr(r_keymap[i])== key:
+                    r_keytimers[i] = 5
         except: key = "2"
 
-        for i in range(44):
-            if keytimers[i] > 0:
-                keytimers[i] -= 1
-             
-       #pane.clear()
 
-        # Run through all of the lines in the pane
-        for y in range(4):
-            for x in range(11):
-                if keytimers[(y*11)+x] > 0:
-                    pane.addch(y, x, chr(keymap[(y*11)+x]), hilite)
-                if keytimers[(y*11)+x] == 1:
-                    pane.addch(y, x, chr(keymap[(y*11)+x]), plain) # Print character, auto wrap with addstr
+        # Run through all of the lines in the l_pane
+        for y in range(3):
+            for x in range(5):
+                if l_keytimers[(y*5)+x] == 5:
+                    l_pane.addch(y, x, chr(l_keymap[(y*5)+x]), hilite)
+                if l_keytimers[(y*5)+x] == 1:
+                    l_pane.addch(y, x, chr(l_keymap[(y*5)+x]), plain)    
 
+        for i in range(15):
+            if l_keytimers[i] > 0:
+                l_keytimers[i] -= 1
+        
+        # Run through all of the lines in the r_pane
+        for y in range(3):
+            for x in range(4):
+                if r_keytimers[(y*4)+x] == 5:
+                    r_pane.addch(y, x, chr(r_keymap[(y*4)+x]), hilite)
+                if r_keytimers[(y*4)+x] == 1:
+                    r_pane.addch(y, x, chr(r_keymap[(y*4)+x]), plain)    
+        for i in range(12):
+            if r_keytimers[i] > 0:
+                r_keytimers[i] -= 1
 
-        pane.noutrefresh()
-
+        l_pane.noutrefresh()
+        r_pane.noutrefresh()
         curses.doupdate()
         time.sleep(0.017)
 curses.wrapper(main)
@@ -123,17 +150,17 @@ curses.wrapper(main)
 2.1     If the characters timer is 0, print the plain text 
 2.2     else, print the highlighted text
 
-        # Run through all of the lines in the pane
+        # Run through all of the lines in the l_pane
         for i in range(43): 
             if key == chr(keymap[i]):
-                if pane.getyx()[1] < 10:      # Check for edge and wrap manually  
-                    newy = pane.getyx()[0]    
-                    newx = pane.getyx()[1] + 1
+                if l_pane.getyx()[1] < 10:      # Check for edge and wrap manually  
+                    newy = l_pane.getyx()[0]    
+                    newx = l_pane.getyx()[1] + 1
                 else:
-                    newy = pane.getyx()[0] + 1
+                    newy = l_pane.getyx()[0] + 1
                     newx = 0
-                pane.move(newy, newx)         # Skip the position and don't update pane buffer
+                l_pane.move(newy, newx)         # Skip the position and don't update l_pane buffer
                 #pane.addstr(chr(keymap[i]), hilite)
             else:
-                pane.addstr(chr(keymap[i]), plain) # Print character, auto wrap with addstr
+                l_pane.addstr(chr(keymap[i]), plain) # Print character, auto wrap with addstr
 '''
