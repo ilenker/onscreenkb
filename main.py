@@ -2,42 +2,14 @@ import numpy as np
 import curses
 import time
 import sys
+import random
+from wpm_functions import *
 
-width = 11
-height = 4
-#       123456789AB
-row1 = "qwert  yuio"
-row2 = "asdfg  hjkl"
-row3 = "zxcvb  pnm["
-            #0123456789ABCDEFGHIJKLMNOPQ
-lpanechars = "qwertasdfgzxcvb"
-rpanechars = "yuiohjklpnm["
+def get_words():
+    with open("/home/ilenker/workspace/github.com/ilenker/onscreenkb/hundredwordlist") as f:
+        file_contents = f.read()
+    return file_contents                               
 
-#   keymap = np.zeros((width, height), dtype = int)
-
-#   for i in range(width):
-#       keymap[i][0] = ord(row1[i])
-#       keymap[i][1] = ord(row2[i])
-#       keymap[i][2] = ord(row3[i])
-#       keymap[i][3] = ord(row4[i])
-
-l_keymap = np.zeros((15), dtype = np.uint8)
-l_keytimers = np.zeros((15), dtype = np.uint8)
-for i in range(15):
-    l_keymap[i] = ord(lpanechars[i])
-
-r_keymap = np.zeros((12), dtype = np.uint8)
-r_keytimers = np.zeros((12), dtype = np.uint8)
-for i in range(12):
-    r_keymap[i] = ord(rpanechars[i])
-
-def init_curses():
-    # Initialize curses
-    stdscr = curses.initscr()
-    curses.noecho()
-    curses.cbreak()
-    curses.curs_set(1)  # Hide the cursor
-    return stdscr
  
 def create_pane(stdscr, height, width, y, x):
     # Create a new window l_pane
@@ -47,73 +19,132 @@ def create_pane(stdscr, height, width, y, x):
     return pane
 
 def main(stdscr):
+    # Initialisation 
+    timer_length = 7
+    stdscr = curses.initscr()
+    curses.noecho()
+    curses.cbreak()
+    curses.curs_set(1)  # Hide the cursor
+    lpanechars = "qwertasdfgzxcvb"
+    rpanechars = "yuiohjklpnm["
 
-    init_curses()
+    l_keymap = np.zeros((15), dtype = np.uint8)
+    l_keytimers = np.zeros((15), dtype = np.uint8)
+    for i in range(15):
+        l_keymap[i] = ord(lpanechars[i])
+
+    r_keymap = np.zeros((12), dtype = np.uint8)
+    r_keytimers = np.zeros((12), dtype = np.uint8)
+    for i in range(12):
+        r_keymap[i] = ord(rpanechars[i])
+
     stdscr.clear()
-    l_pane = stdscr.subwin(4, 5, 1, 1)
-    r_pane = stdscr.subwin(4, 4, 1, 9)
-    debug_pane = stdscr.subwin(5, 12, 0, 0)
-    debug_pane.box()
-    spin_pane = stdscr.subwin(1, 2, 4, 5)
+    l_pane = stdscr.subwin(4, 5, 10, 4)
+    r_pane = stdscr.subwin(4, 4, 10, 13)
+    text_pane = stdscr.subwin(3, 42, 0, 0)
+    text_pane.box()
+    keyboard_display = stdscr.subwin(5, 28, 5, 4)
+    spin_pane = stdscr.subwin(1, 10, 0, 1)
 
-    l_pane.nodelay(True)  # Set l_pane to non-blocking input
-    r_pane.nodelay(True)  # Set l_pane to non-blocking input
-    spin_pane.nodelay(True)  # Set l_pane to non-blocking input
-    debug_pane.nodelay(True)  # Set l_pane to non-blocking input
-    
+    l_pane.nodelay(True)  # Set panes to non-blocking input
+    r_pane.nodelay(True)  
+    spin_pane.nodelay(True) 
+    text_pane.nodelay(True)  
+    stdscr.nodelay(True)
+
+    curses.init_color(9, 200, 200, 200)
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_MAGENTA)
+    curses.init_pair(3, 9, curses.COLOR_BLACK)
+    greyed = curses.color_pair(3)
     plain = curses.color_pair(1) 
     hilite = curses.color_pair(2)
-    
+
     key = "2"
 
-    stdscr.addstr(9, 5, "(^=__=^)")
+    stdscr.addstr(7, 4, "(^=__=^)")
     stdscr.refresh()
     spinner = ["-", "\\", "|", "/"]
     i_s = 0 # Spinner timer
     curses.curs_set(0)
-    # Run through all of the lines in the l_pane
+
+                            # Run through all of the lines in the l_pane
     for i in range(15): 
         l_pane.addstr(chr(l_keymap[i]), plain) # Print character, auto wrap with addstr
 
-    # Run through all of the lines in the r_pane
+                            # Run through all of the lines in the r_pane
     for i in range(12): 
         r_pane.addstr(chr(r_keymap[i]), plain) # Print character, auto wrap with addstr
+
+    for i in range(3):
+        for i in range(5):
+            keyboard_display.addch("[", greyed)
+            keyboard_display.addch(" ")
+            keyboard_display.addch("]", greyed)
+        keyboard_display.addstr(" ")
+        for i in range(4):
+            keyboard_display.addch("[", greyed)
+            keyboard_display.addch(" ")
+            keyboard_display.addch("]", greyed)
 
     l_pane.leaveok(True)
     r_pane.leaveok(True)
     spin_pane.leaveok(True)
     l_pane.refresh()
     r_pane.refresh()
+    cursor_index = 1
+    keyboard_display.refresh()
 
+    sentence = ""
+    wordlist = get_words().split("\n")
+    for i in range(5):
+        sentence += f"{wordlist[random.randint(0, 100)]} "
+    text_pane.addstr(1, 1, sentence, greyed)
+
+    epoch = time.perf_counter()
+                                        # MAIN LOOP #
     while True:
         
         if i_s < 3:
-            i_s += 0.03
+            i_s += 0.20
         else: 
             i_s = 0
-        spin_pane.addstr(0, 0, spinner[int(i_s)])
-        spin_pane.noutrefresh()
+        spin_pane.addstr(0, 1, spinner[round(i_s)])
 
-        key = "2"
-        
-        # L PANE KEY TIMER LOGIC
+
+        # KEYS + TIMER LOGIC
         try:
-            key = l_pane.getkey()  # Non-blocking input check
-            for i in range(15):
-                if chr(l_keymap[i])== key:
-                    l_keytimers[i] = 5
-            for i in range(12):
-                if chr(r_keymap[i])== key:
-                    r_keytimers[i] = 5
+            key = stdscr.getkey()  # Non-blocking input check
+            for i in range(27):
+                if i < 15:
+                    if chr(l_keymap[i])== key:
+                        text_pane.addch(1, cursor_index, key)
+                        cursor_index += 1
+                        l_keytimers[i] = timer_length
+                else:
+                    if chr(r_keymap[i-15])== key:
+                        text_pane.addch(1, cursor_index, key)
+                        cursor_index += 1
+                        r_keytimers[i-15] = timer_length
+            if key == "KEY_BACKSPACE":
+                cursor_index -= 1
+                text_pane.addch(1, cursor_index, sentence[cursor_index - 1], greyed)
+            if key == " ":
+                cursor_index += 1
+            if key == "Q":
+                text_pane.move(1, 1)
+                text_pane.clrtoeol()
+                cursor_index = 1 
+                sentence = ""
+                for i in range(5):
+                    sentence += f"{wordlist[random.randint(0, 100)]} "
+                text_pane.addstr(1, 1, sentence, greyed)
         except: key = "2"
-
 
         # Run through all of the lines in the l_pane
         for y in range(3):
             for x in range(5):
-                if l_keytimers[(y*5)+x] == 5:
+                if l_keytimers[(y*5)+x] == timer_length:
                     l_pane.addch(y, x, chr(l_keymap[(y*5)+x]), hilite)
                 if l_keytimers[(y*5)+x] == 1:
                     l_pane.addch(y, x, chr(l_keymap[(y*5)+x]), plain)    
@@ -125,42 +156,31 @@ def main(stdscr):
         # Run through all of the lines in the r_pane
         for y in range(3):
             for x in range(4):
-                if r_keytimers[(y*4)+x] == 5:
+                if r_keytimers[(y*4)+x] == timer_length:
                     r_pane.addch(y, x, chr(r_keymap[(y*4)+x]), hilite)
                 if r_keytimers[(y*4)+x] == 1:
                     r_pane.addch(y, x, chr(r_keymap[(y*4)+x]), plain)    
+
         for i in range(12):
             if r_keytimers[i] > 0:
                 r_keytimers[i] -= 1
 
-        l_pane.noutrefresh()
-        r_pane.noutrefresh()
+        for j in range(3):
+            for i in range(5):
+                keyboard_display.addch(j, 1+i*3, l_pane.inch(j, i))
+        for j in range(3):
+            for i in range(4):
+                keyboard_display.addch(j, 17+(i*3), r_pane.inch(j, i))
+
+        text_pane.addstr(2, 0, get_wpm(get_test_time_s(epoch), chr_count))
+        
+        keyboard_display.noutrefresh()
+        text_pane.noutrefresh() 
+        #l_pane.noutrefresh()
+        #r_pane.noutrefresh()
+        spin_pane.noutrefresh()
         curses.doupdate()
         time.sleep(0.017)
+
 curses.wrapper(main)
 
-'''
-    qwert    qwert
-    00000    55555
-1       When a key is pressed, change the corresponding key's value in the kb map
-        to timer value, e.g. 5
-1.1     each loop, reduce all the values in kbmap[i][1] by a fixed amount until they reach 0
-
-2   Print the kb map
-2.1     If the characters timer is 0, print the plain text 
-2.2     else, print the highlighted text
-
-        # Run through all of the lines in the l_pane
-        for i in range(43): 
-            if key == chr(keymap[i]):
-                if l_pane.getyx()[1] < 10:      # Check for edge and wrap manually  
-                    newy = l_pane.getyx()[0]    
-                    newx = l_pane.getyx()[1] + 1
-                else:
-                    newy = l_pane.getyx()[0] + 1
-                    newx = 0
-                l_pane.move(newy, newx)         # Skip the position and don't update l_pane buffer
-                #pane.addstr(chr(keymap[i]), hilite)
-            else:
-                l_pane.addstr(chr(keymap[i]), plain) # Print character, auto wrap with addstr
-'''
