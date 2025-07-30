@@ -1,1 +1,6 @@
-Learning how to use curse to write some terminal apps (^=__=^)
+# ANOTHER TYPING TEST PROGRAM?
+
+yes indeed.
+
+TAB to restart
+capital letter support coming soon
